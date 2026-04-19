@@ -4,7 +4,7 @@ const { createGeofence, getGeofences, deleteGeofence } = require('../controllers
 const { authenticate, requireAdmin } = require('../middleware/auth');
 
 router.get('/', authenticate, getGeofences);
-router.post('/', authenticate, requireAdmin, createGeofence);
-router.delete('/:id', authenticate, requireAdmin, deleteGeofence);
+router.post('/', authenticate, createGeofence);
+router.delete('/:id', authenticate,  deleteGeofence);
 
 module.exports = router;
