@@ -3,6 +3,14 @@
 Automatic attendance tracking for churches using GPS geofencing.
 Members are logged when they arrive and leave the church campus - no manual check-in needed.
 
+## Default Geofence
+
+Database setup creates this default geofence:
+
+- Address: `3100 Avalon Ridge Pl NW, Peachtree Corners, GA 30071`
+- Coordinates: `33.9637183, -84.1925473`
+- Radius: `0.1 miles`
+
 ---
 
 ## API Endpoints
@@ -77,7 +85,7 @@ npm install
 # Copy env file and fill in values
 cp .env.example .env
 
-# Set up database tables
+# Set up database tables and the default Avalon Ridge geofence
 npm run db:setup
 
 # Start development server
@@ -107,9 +115,9 @@ POST /api/auth/signup
 POST /api/geofences
 Authorization: Bearer <token>
 {
-  "name": "Main Campus",
-  "centerLat": 6.5244,
-  "centerLng": 3.3792,
+  "name": "Avalon Ridge Campus",
+  "centerLat": 33.9637183,
+  "centerLng": -84.1925473,
   "radiusMiles": 0.1
 }
 ```
@@ -119,13 +127,13 @@ Authorization: Bearer <token>
 POST /api/location/ping
 Authorization: Bearer <token>
 {
-  "latitude": 6.5244,
-  "longitude": 3.3792
+  "latitude": 33.9637183,
+  "longitude": -84.1925473
 }
 ```
 Response when entering:
 ```json
-{ "isInsideGeofence": true, "event": "ENTERED", "geofenceName": "Main Campus" }
+{ "isInsideGeofence": true, "event": "ENTERED", "geofenceName": "Avalon Ridge Campus" }
 ```
 
 ### 4. View Today's Attendance (Admin)
