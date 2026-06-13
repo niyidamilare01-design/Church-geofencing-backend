@@ -5,11 +5,11 @@ async function setupDatabase() {
   const client = await pool.connect();
 
   try {
-    console.log('🔧 Setting up database...');
+    console.log('Setting up database...');
 
     // Enable PostGIS extension for geospatial queries
     await client.query(`CREATE EXTENSION IF NOT EXISTS postgis;`);
-    console.log('✅ PostGIS enabled');
+    console.log('PostGIS enabled');
 
     // Churches / Campuses table
     await client.query(`
@@ -21,7 +21,7 @@ async function setupDatabase() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
-    console.log('✅ churches table ready');
+    console.log('churches table ready');
 
     // Members table
     await client.query(`
@@ -38,9 +38,9 @@ async function setupDatabase() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
-    console.log('✅ members table ready');
+    console.log('members table ready');
 
-    // Geofences table (uses PostGIS geography type)
+    // Geofences table (radius is stored in meters for database compatibility)
     await client.query(`
       CREATE TABLE IF NOT EXISTS geofences (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -53,7 +53,7 @@ async function setupDatabase() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
-    console.log('✅ geofences table ready');
+    console.log('geofences table ready');
 
     // Attendance logs table
     await client.query(`
@@ -68,7 +68,7 @@ async function setupDatabase() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
-    console.log('✅ attendance_logs table ready');
+    console.log('attendance_logs table ready');
 
     // Member location state table (tracks inside/outside status to prevent duplicate logs)
     await client.query(`
@@ -81,19 +81,52 @@ async function setupDatabase() {
         current_attendance_id UUID REFERENCES attendance_logs(id)
       );
     `);
-    console.log('✅ member_location_state table ready');
+    console.log('member_location_state table ready');
 
-    // Seed a default church for development
+    const inviteCode = process.env.CHURCH_INVITE_CODE || 'GRACE2024';
+
+    // Seed the church for development
     await client.query(`
       INSERT INTO churches (name, invite_code, address)
-      VALUES ('Grace Community Church', $1, '123 Faith Avenue, Lagos')
-      ON CONFLICT (invite_code) DO NOTHING;
-    `, [process.env.CHURCH_INVITE_CODE || 'GRACE2024']);
-    console.log('✅ Default church seeded');
+      VALUES (
+        'Grace Community Church',
+        $1,
+        '3100 Avalon Ridge Pl NW, Peachtree Corners, GA 30071'
+      )
+      ON CONFLICT (invite_code) DO UPDATE
+      SET address = EXCLUDED.address;
+    `, [inviteCode]);
+    console.log('Default church seeded');
 
-    console.log('\n🎉 Database setup complete! Ready to go.\n');
+    // 0.1-mile geofence centered on the Avalon Ridge address.
+    await client.query(`
+      INSERT INTO geofences (
+        church_id,
+        name,
+        center_lat,
+        center_lng,
+        radius_meters
+      )
+      SELECT
+        churches.id,
+        'Avalon Ridge Campus',
+        33.9637183,
+        -84.1925473,
+        161
+      FROM churches
+      WHERE churches.invite_code = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM geofences
+          WHERE geofences.church_id = churches.id
+            AND geofences.name = 'Avalon Ridge Campus'
+        );
+    `, [inviteCode]);
+    console.log('Avalon Ridge geofence seeded (0.1 miles)');
+
+    console.log('\nDatabase setup complete! Ready to go.\n');
   } catch (err) {
-    console.error('❌ Setup failed:', err.message);
+    console.error('Setup failed:', err.message);
     throw err;
   } finally {
     client.release();
