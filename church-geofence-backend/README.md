@@ -1,7 +1,7 @@
-# ⛪ Church Geofence Backend API
+# Church Geofence Backend API
 
 Automatic attendance tracking for churches using GPS geofencing.
-Members are logged when they arrive and leave the church campus — no manual check-in needed.
+Members are logged when they arrive and leave the church campus - no manual check-in needed.
 
 ---
 
@@ -35,7 +35,7 @@ Go to [railway.app](https://railway.app) and sign up with GitHub.
 
 ### 3. Add PostgreSQL Database
 - In your Railway project, click **+ New**
-- Select **Database → PostgreSQL**
+- Select **Database -> PostgreSQL**
 - Railway will auto-create and link it
 
 ### 4. Enable PostGIS
@@ -45,7 +45,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 ```
 
 ### 5. Set Environment Variables
-In your Railway service → **Variables**, add:
+In your Railway service -> **Variables**, add:
 ```
 DATABASE_URL        = (Railway auto-fills this from the linked PostgreSQL)
 JWT_SECRET          = (any long random string, e.g. use: openssl rand -base64 32)
@@ -101,6 +101,8 @@ POST /api/auth/signup
 ```
 
 ### 2. Create Geofence (Admin)
+`radiusMiles` is the geofence radius in miles.
+
 ```json
 POST /api/geofences
 Authorization: Bearer <token>
@@ -108,7 +110,7 @@ Authorization: Bearer <token>
   "name": "Main Campus",
   "centerLat": 6.5244,
   "centerLng": 3.3792,
-  "radiusMeters": 150
+  "radiusMiles": 0.1
 }
 ```
 
@@ -137,9 +139,9 @@ Authorization: Bearer <token>
 ## How Geofence Detection Works
 
 1. Mobile app pings `/api/location/ping` every 60 seconds
-2. Backend calculates distance from member to each geofence center (Haversine formula)
-3. If member crosses into a zone → **ENTRY** logged, attendance record created
-4. If member leaves the zone → **EXIT** logged, duration calculated
+2. Backend calculates distance in miles from the member to each geofence center (Haversine formula)
+3. If member crosses into a zone -> **ENTRY** logged, attendance record created
+4. If member leaves the zone -> **EXIT** logged, duration calculated
 5. State is tracked per member so events only fire **once** per entry/exit
 
 ---
@@ -148,19 +150,19 @@ Authorization: Bearer <token>
 
 ```
 src/
-├── index.js                    # Express app entry point
-├── db/
-│   ├── pool.js                 # PostgreSQL connection
-│   └── setup.js                # Database table creation
-├── middleware/
-│   └── auth.js                 # JWT authentication
-├── controllers/
-│   ├── authController.js       # Signup, login, profile
-│   ├── geofenceController.js   # Zone management
-│   ├── locationController.js   # GPS ping + detection
-│   └── attendanceController.js # Reports + live view
-└── routes/
-    ├── auth.js
-    ├── geofences.js
-    └── location.js
+|-- index.js                    # Express app entry point
+|-- db/
+|   |-- pool.js                 # PostgreSQL connection
+|   `-- setup.js                # Database table creation
+|-- middleware/
+|   `-- auth.js                 # JWT authentication
+|-- controllers/
+|   |-- authController.js       # Signup, login, profile
+|   |-- geofenceController.js   # Zone management
+|   |-- locationController.js   # GPS ping + detection
+|   `-- attendanceController.js # Reports + live view
+`-- routes/
+    |-- auth.js
+    |-- geofences.js
+    `-- location.js
 ```
