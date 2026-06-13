@@ -1,8 +1,10 @@
 const pool = require('../db/pool');
 
-// Haversine formula — calculates distance between two GPS coordinates in meters
-function getDistanceMeters(lat1, lng1, lat2, lng2) {
-  const R = 6371000; // Earth radius in meters
+const EARTH_RADIUS_MILES = 3958.7613;
+const METERS_PER_MILE = 1609.344;
+
+// Haversine formula - calculates distance between two GPS coordinates in miles
+function getDistanceMiles(lat1, lng1, lat2, lng2) {
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
@@ -12,7 +14,7 @@ function getDistanceMeters(lat1, lng1, lat2, lng2) {
       Math.sin(dLng / 2) *
       Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  return EARTH_RADIUS_MILES * c;
 }
 
 // POST /api/location/ping
@@ -40,13 +42,14 @@ const pingLocation = async (req, res) => {
     // 2. Check if member is inside ANY geofence
     let insideGeofence = null;
     for (const zone of geofences) {
-      const distance = getDistanceMeters(
+      const distanceMiles = getDistanceMiles(
         latitude,
         longitude,
         parseFloat(zone.center_lat),
         parseFloat(zone.center_lng)
       );
-      if (distance <= zone.radius_meters) {
+      const radiusMiles = zone.radius_meters / METERS_PER_MILE;
+      if (distanceMiles <= radiusMiles) {
         insideGeofence = zone;
         break;
       }
@@ -64,7 +67,7 @@ const pingLocation = async (req, res) => {
 
     let event = null;
 
-    // 4. ENTRY — Member just arrived (was outside, now inside)
+    // 4. ENTRY - Member just arrived (was outside, now inside)
     if (insideGeofence && !wasInside) {
       // Create attendance log
       const attendanceResult = await client.query(
@@ -78,17 +81,17 @@ const pingLocation = async (req, res) => {
 
       // Update member state to "inside"
       await client.query(
-        `UPDATE member_location_state 
+        `UPDATE member_location_state
          SET is_inside = true, last_ping = NOW(), last_lat = $2, last_lng = $3, current_attendance_id = $4
          WHERE member_id = $1`,
         [memberId, latitude, longitude, attendance.id]
       );
 
       event = 'ENTERED';
-      console.log(`✅ ENTRY: Member ${memberId} entered ${insideGeofence.name}`);
+      console.log(`ENTRY: Member ${memberId} entered ${insideGeofence.name}`);
     }
 
-    // 5. EXIT — Member just left (was inside, now outside)
+    // 5. EXIT - Member just left (was inside, now outside)
     else if (!insideGeofence && wasInside && currentAttendanceId) {
       // Update the attendance log with exit time
       await client.query(
@@ -98,20 +101,20 @@ const pingLocation = async (req, res) => {
 
       // Update member state to "outside"
       await client.query(
-        `UPDATE member_location_state 
+        `UPDATE member_location_state
          SET is_inside = false, last_ping = NOW(), last_lat = $2, last_lng = $3, current_attendance_id = NULL
          WHERE member_id = $1`,
         [memberId, latitude, longitude]
       );
 
       event = 'EXITED';
-      console.log(`👋 EXIT: Member ${memberId} left the campus`);
+      console.log(`EXIT: Member ${memberId} left the campus`);
     }
 
-    // 6. No change — just update the last ping time and coordinates
+    // 6. No change - just update the last ping time and coordinates
     else {
       await client.query(
-        `UPDATE member_location_state 
+        `UPDATE member_location_state
          SET last_ping = NOW(), last_lat = $2, last_lng = $3
          WHERE member_id = $1`,
         [memberId, latitude, longitude]
