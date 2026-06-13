@@ -1,26 +1,42 @@
 const pool = require('../db/pool');
 
-// POST /api/geofences — Admin creates a geofence zone
+const METERS_PER_MILE = 1609.344;
+
+function serializeGeofence(geofence) {
+  const { radius_meters: radiusMeters, ...rest } = geofence;
+  return {
+    ...rest,
+    radiusMiles: Number((radiusMeters / METERS_PER_MILE).toFixed(3)),
+  };
+}
+
+// POST /api/geofences - Admin creates a geofence zone
 const createGeofence = async (req, res) => {
-  const { name, centerLat, centerLng, radiusMeters } = req.body;
+  const { name, centerLat, centerLng, radiusMiles } = req.body;
   const churchId = req.member.churchId;
+
+  if (radiusMiles !== undefined && (!Number.isFinite(Number(radiusMiles)) || Number(radiusMiles) <= 0)) {
+    return res.status(400).json({ error: 'radiusMiles must be a positive number' });
+  }
+
+  const radiusMeters = Math.round(Number(radiusMiles ?? 0.062) * METERS_PER_MILE);
 
   try {
     const result = await pool.query(
       `INSERT INTO geofences (church_id, name, center_lat, center_lng, radius_meters)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [churchId, name, centerLat, centerLng, radiusMeters || 100]
+      [churchId, name, centerLat, centerLng, radiusMeters]
     );
 
-    res.status(201).json({ geofence: result.rows[0] });
+    res.status(201).json({ geofence: serializeGeofence(result.rows[0]) });
   } catch (err) {
     console.error('Create geofence error:', err);
     res.status(500).json({ error: 'Failed to create geofence' });
   }
 };
 
-// GET /api/geofences — Get all geofences for this church
+// GET /api/geofences - Get all geofences for this church
 const getGeofences = async (req, res) => {
   const churchId = req.member.churchId;
 
@@ -30,13 +46,13 @@ const getGeofences = async (req, res) => {
       [churchId]
     );
 
-    res.json({ geofences: result.rows });
+    res.json({ geofences: result.rows.map(serializeGeofence) });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch geofences' });
   }
 };
 
-// DELETE /api/geofences/:id — Admin deactivates a geofence
+// DELETE /api/geofences/:id - Admin deactivates a geofence
 const deleteGeofence = async (req, res) => {
   const { id } = req.params;
   const churchId = req.member.churchId;
